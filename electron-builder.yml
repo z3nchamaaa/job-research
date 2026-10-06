@@ -8,6 +8,7 @@ files:
   - "desktop/*.cjs"
   - '!desktop/*.test.cjs'
   - "package.json"
+  - "LICENSE"
   - '!node_modules/!(jose){,/**/*}'
 extraResources:
   - from: "desktop-runtime"
