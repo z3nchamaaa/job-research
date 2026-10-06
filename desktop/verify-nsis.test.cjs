@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { deflateRawSync } = require('node:zlib');
 const { crc32, verifyBuffer, verifyInstaller } = require('./verify-nsis.cjs');
+const artifactBuildCompleted = require('./verify-nsis.cjs');
 function executable(blocks) {
   const stub = Buffer.alloc(1024); stub.write('MZ');
   const header = Buffer.alloc(28);
@@ -17,6 +18,10 @@ function executable(blocks) {
   return Buffer.concat([body,crc]);
 }
 test('CRC32 standard test vector', () => assert.equal(crc32(Buffer.from('123456789')),0xcbf43926));
+test('NSIS blockmap event is not an executable and must be skipped', async () => {
+  await artifactBuildCompleted({target:{name:'nsis'},file:'installer.exe.blockmap'});
+  await artifactBuildCompleted({target:{name:'dmg'},file:'installer.dmg'});
+});
 test('installer and compressed embedded uninstaller CRC pass', () => {
   const installer = executable([Buffer.from('header'),executable([Buffer.from('uninstall data')])]);
   assert.equal(verifyInstaller(installer).uninstallers,1);

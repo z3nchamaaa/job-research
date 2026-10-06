@@ -44,7 +44,8 @@ function verifyInstaller(buffer) {
   return { ...outer, uninstallers };
 }
 async function artifactBuildCompleted(context) {
-  if (context.target?.name !== 'nsis') return;
+  // electron-builder emits both EXE and .exe.blockmap events for the NSIS target.
+  if (context.target?.name !== 'nsis' || !context.file?.toLowerCase().endsWith('.exe')) return;
   if (process.platform !== 'win32') throw new Error('Windows installers must be built on Windows');
   const result = verifyInstaller(fs.readFileSync(context.file));
   console.log(`NSIS CRC verified: ${context.file} (${result.uninstallers} embedded uninstaller)`);
