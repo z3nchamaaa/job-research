@@ -1,6 +1,8 @@
 {
   "name": "contract",
-  "version": "0.1.0",
+  "version": "1.0.1",
+  "description": "Local job application and company research tracker",
+  "homepage": "https://github.com/z3nchamaaa/job-research",
   "license": "MIT",
   "private": true,
   "main": "desktop/main.cjs",
