@@ -1,0 +1,77 @@
+name: Assemble verified release draft
+on:
+  workflow_dispatch:
+    inputs:
+      build_run_id:
+        description: Successful Desktop release builds run ID
+        required: true
+        type: string
+      release_tag:
+        description: Existing tag matching the build source
+        required: true
+        default: v1.0.2
+        type: string
+permissions:
+  contents: write
+  actions: read
+jobs:
+  draft:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BUILD_RUN_ID: ${{ inputs.build_run_id }}
+      RELEASE_TAG: ${{ inputs.release_tag }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - name: Validate source run and tag
+        run: |
+          node -e 'if(!/^\d+$/.test(process.env.BUILD_RUN_ID)||!/^v\d+\.\d+\.\d+$/.test(process.env.RELEASE_TAG))throw Error("Invalid release inputs")'
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN_ID" > build-run.json
+          node <<'NODE'
+          const fs = require('node:fs');
+          const cp = require('node:child_process');
+          const run = JSON.parse(fs.readFileSync('build-run.json'));
+          const commit = cp.execFileSync('git',['rev-parse',process.env.RELEASE_TAG+'^{commit}'],{encoding:'utf8'}).trim();
+          if (run.name !== 'Desktop release builds' || run.status !== 'completed' || run.conclusion !== 'success' || run.head_sha !== commit) throw Error('Build source, success status, or tag mismatch');
+          NODE
+      - name: Download all verified build artifacts
+        run: gh run download "$BUILD_RUN_ID" --repo "$GITHUB_REPOSITORY" --dir downloaded
+      - name: Collect exactly five packages and generate SHA256SUMS
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const crypto = require('node:crypto');
+          const version = process.env.RELEASE_TAG.slice(1);
+          const expected = new Set([
+            `job-research-${version}-mac-arm64.dmg`,
+            `job-research-${version}-win-x64.exe`,
+            `job-research-${version}-win-arm64.exe`,
+            `job-research-${version}-linux-amd64.deb`,
+            `job-research-${version}-linux-x86_64.rpm`,
+          ]);
+          fs.mkdirSync('release');
+          const found = new Set();
+          function collect(directory) {
+            for (const entry of fs.readdirSync(directory,{withFileTypes:true})) {
+              const source = path.join(directory,entry.name);
+              if (entry.isDirectory()) collect(source);
+              else {
+                if (!expected.has(entry.name) || found.has(entry.name)) throw Error('Unexpected or duplicate asset: '+source);
+                found.add(entry.name);
+                fs.copyFileSync(source,path.join('release',entry.name));
+              }
+            }
+          }
+          collect('downloaded');
+          if (found.size !== 5) throw Error('Missing release assets');
+          const checksums = [...found].sort().map(name => crypto.createHash('sha256').update(fs.readFileSync(path.join('release',name))).digest('hex')+'  '+name).join('\n')+'\n';
+          fs.writeFileSync('release/SHA256SUMS.txt',checksums);
+          console.log(checksums);
+          NODE
+          cd release && sha256sum --check SHA256SUMS.txt
+      - name: Create draft without replacing an existing release
+        run: gh release create "$RELEASE_TAG" release/* --repo "$GITHUB_REPOSITORY" --draft --verify-tag --title "就活トラッカー $RELEASE_TAG" --notes-file RELEASE-NOTES.md
