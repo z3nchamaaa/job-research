@@ -1,4 +1,4 @@
-# 就活Tracker
+# 就活トラッカー
 
 応募先や選考日程を管理するローカルアプリです。企業情報の調査にはChatGPTを使えます。
 
@@ -39,7 +39,7 @@ npm run desktop:dist
 npm run desktop:test
 ```
 
-- **標準出力先**: `dist/mac-arm64/Syukatsu Tracker.app`
+- **標準出力先**: `dist/mac-arm64/就活トラッカー.app`
 - **ビルド環境**: Apple Silicon Mac向けの未署名ローカル `.app` として生成されます。
 
 ### Windows版のビルド

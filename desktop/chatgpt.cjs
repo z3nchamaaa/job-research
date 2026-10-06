@@ -479,7 +479,7 @@ class ChatGPTService {
         });
 
         if (isFirstTime) {
-          params.append('agent_name_hint', '就活Tracker');
+          params.append('agent_name_hint', '就活トラッカー');
         } else if (this.authData && typeof this.authData.id_token === 'string') {
           params.append('id_token_hint', this.authData.id_token);
         }

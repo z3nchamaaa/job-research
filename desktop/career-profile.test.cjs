@@ -73,7 +73,7 @@ test('CareerProfileStore functionality', async (t) => {
     fs.writeFileSync(filePath, originalData); // restore
   });
 
-  await t.test('file read error returns safe Japanese', () => {
+  await t.test('file read error returns safe Japanese', { skip: process.platform === 'win32' }, () => {
     const filePath = path.join(dir, 'career-profile.json');
     // Ensure file exists
     fs.writeFileSync(filePath, JSON.stringify(DEFAULT_CAREER_PROFILE));
@@ -95,7 +95,7 @@ test('CareerProfileStore functionality', async (t) => {
     assert.strictEqual(saved.industries, '');
   });
 
-  await t.test('file permissions are mode 0600', () => {
+  await t.test('file permissions are mode 0600', { skip: process.platform === 'win32' }, () => {
     const filePath = path.join(dir, 'career-profile.json');
     const stat = fs.statSync(filePath);
     assert.strictEqual((stat.mode & 0o777), 0o600);

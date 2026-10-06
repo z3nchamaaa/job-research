@@ -8,7 +8,10 @@ const { ChatGPTService } = require('./chatgpt.cjs');
 const { CareerProfileStore } = require('./career-profile.cjs');
 const { serverEnvironment, startServer } = require('./server-process.cjs');
 
-app.setName('Syukatsu Tracker');
+app.setName('就活トラッカー');
+const getAppIconPath = () => app.isPackaged
+  ? path.join(process.resourcesPath, 'branding', 'app-icon.png')
+  : path.join(__dirname, '..', 'assets', 'icons', 'app-icon.png');
 const isSmokeTest = process.argv.includes('--smoke-test');
 
 if (isSmokeTest) {
@@ -131,6 +134,7 @@ async function runSmokeTests(port) {
     expectedOrigin = `http://127.0.0.1:${port}`;
     mainWindow = new BrowserWindow({
       show: false,
+      icon: getAppIconPath(),
       webPreferences: {
         preload: path.join(__dirname, 'preload.cjs'),
         nodeIntegration: false,
@@ -170,6 +174,7 @@ async function createWindow(port) {
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
+    icon: getAppIconPath(),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       nodeIntegration: false,

@@ -29,13 +29,14 @@ export default function Header({
         <div className="flex flex-wrap items-center justify-between sm:h-16 py-2 sm:py-0 gap-y-3 sm:gap-y-0 gap-x-4">
           {/* Logo & App Name */}
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-container text-on-primary-container">
-              <Sparkles className="h-5 w-5" />
-            </div>
+            <div
+              className="h-10 w-10 shrink-0 bg-[url('/app-icon.png')] bg-contain bg-center bg-no-repeat"
+              aria-hidden="true"
+            />
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="font-medium text-lg sm:text-xl text-on-surface tracking-tight whitespace-nowrap">
-                  就活Tracker
+                  就活トラッカー
                 </h1>
                 <span className="hidden xl:inline-block rounded-lg border border-outline-variant px-2 py-0.5 text-[10px] font-medium text-on-surface-variant whitespace-nowrap">
                   企業調査をAIで補助

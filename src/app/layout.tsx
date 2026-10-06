@@ -19,7 +19,7 @@ const notoSansJP = Noto_Sans_JP({
 });
 
 export const metadata: Metadata = {
-  title: "就活管理",
+  title: "就活トラッカー",
   description: "就職活動の企業・選考・予定を管理するアプリ",
 };
 

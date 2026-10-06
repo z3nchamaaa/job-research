@@ -1,0 +1,60 @@
+name: Desktop release builds
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            target: mac-arm64
+            command: npx electron-builder --mac dmg --arm64 --publish never
+            assets: dist/*.dmg
+          - runner: windows-2025
+            target: win-x64
+            command: npx electron-builder --win nsis --x64 --publish never
+            assets: dist/*-win-x64.exe
+          - runner: windows-2025
+            target: win-arm64
+            command: npm run desktop:prepare-win-arm64 && npx electron-builder --win nsis --arm64 --publish never
+            assets: dist/*-win-arm64.exe
+          - runner: ubuntu-24.04
+            target: linux-x64
+            command: npx electron-builder --linux deb rpm --x64 --publish never
+            assets: |
+              dist/*.deb
+              dist/*.rpm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: bash
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24.21.0'
+          cache: npm
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y rpm
+      - run: npm ci
+      - run: npm run desktop:build
+      - run: npm run desktop:test
+      - run: node desktop/verify-release-runtime.cjs
+      - run: ${{ matrix.command }}
+      - if: runner.os == 'macOS'
+        run: codesign --verify --deep --strict 'dist/mac-arm64/就活トラッカー.app'
+      - if: matrix.target == 'win-x64'
+        shell: pwsh
+        run: ./desktop/smoke-install-windows.ps1 (Get-Item 'dist/*-win-x64.exe').FullName
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ${{ matrix.target }}
+          path: ${{ matrix.assets }}
+          if-no-files-found: error
+          retention-days: 7

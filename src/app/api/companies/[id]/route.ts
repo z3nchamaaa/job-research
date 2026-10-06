@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { isCompanyPriority } from "@/lib/company-priority";
 
 export async function GET(
   req: Request,
@@ -55,6 +56,13 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await req.json();
+
+    if ("priority" in body && !isCompanyPriority(body.priority)) {
+      return NextResponse.json(
+        { error: "志望度は1〜5の整数で指定してください。" },
+        { status: 400 }
+      );
+    }
 
     const allowedFields = [
       "name",

@@ -19,6 +19,7 @@ import {
   Zap,
 } from "lucide-react";
 import { CompanyItem, STATUS_LABELS, SelectionStatus } from "@/types";
+import CompanyPriorityEditor from "./CompanyPriorityEditor";
 
 const STATUS_STYLES: Record<SelectionStatus, { bg: string; text: string }> = {
   INTERESTED: { bg: "bg-secondary-container", text: "text-on-secondary-container" },
@@ -284,9 +285,12 @@ export default function CompanyDetailModal({ company, isOpen, onClose, onUpdated
 
               {/* 星とチップ (スマホでは2行目、PCでは企業名の下) */}
               <div className="flex items-center gap-2 mt-1.5 md:mt-1 text-xs text-on-surface-variant flex-wrap">
-                <div className="flex text-amber-400 text-sm shrink-0">
-                  {"★".repeat(company.priority)}
-                </div>
+                <CompanyPriorityEditor
+                  key={company.id}
+                  companyId={company.id}
+                  priority={company.priority}
+                  onUpdated={onUpdated}
+                />
                 {company.industry && <span className="rounded-lg border border-outline-variant px-2 py-0.5 font-medium">{company.industry}</span>}
                 {company.jobType && <span className="rounded-lg border border-outline-variant px-2 py-0.5 font-medium">{company.jobType}</span>}
                 {company.websiteUrl && (
