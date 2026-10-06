@@ -1,0 +1,37 @@
+appId: "com.syukatsu.tracker"
+productName: "Syukatsu Tracker"
+artifactName: "job-research-${version}-${os}-${arch}.${ext}"
+npmRebuild: false
+directories:
+  output: "dist"
+files:
+  - "desktop/*.cjs"
+  - '!desktop/*.test.cjs'
+  - "package.json"
+  - '!node_modules/!(jose){,/**/*}'
+extraResources:
+  - from: "desktop-runtime"
+    to: "runtime"
+  - from: "desktop-runtime/node_modules"
+    to: "runtime/node_modules"
+    filter:
+      - "**/*"
+mac:
+  target:
+    - target: "dir"
+      arch:
+        - "arm64"
+    - target: "dmg"
+      arch:
+        - "arm64"
+win:
+  target:
+    - target: "nsis"
+      arch:
+        - "x64"
+        - "arm64"
+  signAndEditExecutable: false
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true

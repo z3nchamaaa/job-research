@@ -1,0 +1,94 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+  binaryTargets = ["native", "windows", "debian-openssl-3.0.x", "rhel-openssl-3.0.x"]
+}
+
+model Company {
+  id              String          @id @default(uuid())
+  name            String
+  industry        String?
+  jobType         String?
+  priority        Int             @default(3) // 1 - 5
+  status          String          @default("APPLIED") // INTERESTED, APPLIED, ES_PASSED, INTERVIEWING, FINAL, OFFER, REJECTED, WITHDRAWN
+  isEarlySelection Boolean        @default(false) // 早期選考の案内あり
+  websiteUrl      String?
+  myPageUrl       String?
+  myPageId        String?
+  myPagePassword  String?
+  description     String?
+  features        String?         // 企業の特徴・強み
+  location        String?
+  salary          String?         // 給与メモ
+  benefits        String?         // 福利厚生メモ
+  ratingSalary    Int             @default(0) // 給与レーティング (1-5)
+  ratingBenefits  Int             @default(0) // 福利厚生レーティング (1-5)
+  startingSalary   Int?     // 初任給（月額・円）
+  bonusTimes       Int?     // 賞与回数（回/年）
+  bonusMonths      Float?   // 賞与（年間・ヶ月分）
+  annualIncome     Int?     // 想定年収（万円）※入社1年目の目安
+  annualHolidays   Int?     // 年間休日（日）
+  fixedOvertime    String?  // みなし残業（例: なし / 30h・45,000円）
+  housingAllowance String?  // 住宅手当・社宅
+  remoteWork       String?  // リモート可否（例: 可 / 一部可 / 不可）
+  memo            String?
+  aiExtractedJson String?         // AIが抽出した生JSONキャッシュ
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  steps           SelectionStep[]
+  interviews      InterviewNote[]
+  events          ScheduleEvent[]
+}
+
+model SelectionStep {
+  id          String          @id @default(uuid())
+  companyId   String
+  company     Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  stepName    String          // ES, 1次面接, 2次面接, 最終面接, Webテスト など
+  stepOrder   Int             @default(1)
+  status      String          @default("PENDING") // PENDING, PASSED, FAILED, SKIPPED
+  dueDate     DateTime?
+  location    String?         // Zoom URL, 本社等
+  memo        String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  events      ScheduleEvent[]
+}
+
+model InterviewNote {
+  id            String    @id @default(uuid())
+  companyId     String
+  company       Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  stepName      String    // 1次面接, 2次面接 など
+  interviewDate DateTime?
+  interviewer   String?   // 面接官の役職や雰囲気
+  questions     String?   // 聞かれた質問 (改行またはMarkdown)
+  answers       String?   // 回答内容
+  feedback      String?   // 手応え・反省点
+  nextAction    String?   // 次回に向けた改善メモ
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model ScheduleEvent {
+  id          String         @id @default(uuid())
+  companyId   String?
+  company     Company?       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  stepId      String?
+  step        SelectionStep? @relation(fields: [stepId], references: [id], onDelete: SetNull)
+  title       String
+  eventType   String         @default("INTERVIEW") // INTERVIEW, ES_DEADLINE, WEB_TEST, BRIEFING, OTHER
+  startAt     DateTime
+  endAt       DateTime?
+  location    String?
+  memo        String?
+  isDone      Boolean        @default(false)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+}
