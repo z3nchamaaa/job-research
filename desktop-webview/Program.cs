@@ -60,7 +60,9 @@ internal sealed class Backend : IDisposable
     {
         var root = AppContext.BaseDirectory;
         var start = new ProcessStartInfo(Path.Combine(root, "runtime", "bin", "win-x64", "node.exe"))
-        { UseShellExecute = false, RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true, WorkingDirectory = root };
+        { UseShellExecute = false, RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true,
+            StandardInputEncoding = new UTF8Encoding(false), StandardOutputEncoding = Encoding.UTF8, StandardErrorEncoding = Encoding.UTF8,
+            CreateNoWindow = true, WorkingDirectory = root };
         start.ArgumentList.Add(Path.Combine(root, "backend", "backend.cjs"));
         // Node injection and arbitrary developer variables must not reach the backend.
         var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "PATH", "SYSTEMROOT", "WINDIR", "TEMP", "TMP", "USERPROFILE", "LOCALAPPDATA", "APPDATA" };
@@ -161,6 +163,7 @@ internal sealed class HostWindow : Form
         await web.EnsureCoreWebView2Async(environment);
         var core = web.CoreWebView2;
         core.Settings.AreDevToolsEnabled = false;
+        core.Settings.AreHostObjectsAllowed = false;
         core.Settings.IsStatusBarEnabled = false;
         core.Settings.IsPasswordAutosaveEnabled = false;
         core.Settings.IsGeneralAutofillEnabled = false;

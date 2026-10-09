@@ -26,9 +26,9 @@ jobs:
         with:
           dotnet-version: '10.0.x'
       - run: npm ci
+      - run: npm run desktop:build
       - run: npm run desktop:test
       - run: npm run webview:test
-      - run: npm run desktop:build
       - run: npm run desktop:prepare-win-arm64
       - run: npm run webview:prepare
       - name: Build standalone WebView2 host
@@ -66,6 +66,8 @@ jobs:
           $package = 'job-research-1.0.3-webview2-${{ matrix.rid }}.zip'
           Compress-Archive -Path 'dist/webview/${{ matrix.rid }}/*' -DestinationPath "dist/$package"
           $bytes = (Get-Item "dist/$package").Length
+          $unpacked = (Get-ChildItem 'dist/webview/${{ matrix.rid }}' -Recurse -File | Measure-Object Length -Sum).Sum
+          Write-Output "${{ matrix.rid }} ZIP: $bytes bytes; unpacked: $unpacked bytes"
           $sha = (Get-FileHash "dist/$package" -Algorithm SHA256).Hash.ToLower()
           "$sha  $package" | Set-Content "dist/$package.sha256" -Encoding utf8NoBOM
           "${{ matrix.rid }} ZIP: $bytes bytes" >> $env:GITHUB_STEP_SUMMARY
