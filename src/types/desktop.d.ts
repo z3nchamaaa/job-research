@@ -2,6 +2,8 @@ export interface DesktopSession {
   connected: boolean;
   sharing: boolean;
   email?: string;
+  needsReauthentication?: boolean;
+  authError?: string;
 }
 
 export interface DesktopModel {

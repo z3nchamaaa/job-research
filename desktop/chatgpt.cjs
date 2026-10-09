@@ -92,7 +92,7 @@ class ChatGPTService {
 
   getSession() {
     if (this.authLoadError) {
-      throw this.authLoadError;
+      return { connected: false, sharing: false, needsReauthentication: true, authError: this.authLoadError.message };
     }
     if (!this.authData) {
       return { connected: false, sharing: false, email: undefined };
@@ -145,7 +145,18 @@ class ChatGPTService {
     }
     
     if (this.authLoadError) {
-      throw this.authLoadError;
+      if (!this.safeStorage.isEncryptionAvailable()) {
+        throw new Error('OSの暗号化機能が利用できません。キーチェーン等を利用できる状態にしてから再ログインしてください。保存済みの認証情報は変更していません。');
+      }
+      try {
+        fs.unlinkSync(this.authFilePath);
+      } catch (error) {
+        if (error.code !== 'ENOENT') throw new Error('保存済みの認証情報を削除できませんでした。アプリの保存先の権限を確認してください。');
+      }
+      this.authData = null;
+      this.authLoadError = null;
+      // The encrypted token cannot be read, so remote revocation cannot be confirmed.
+      return { remoteRevoked: false };
     }
 
     if (!this.authData) {
@@ -262,6 +273,7 @@ class ChatGPTService {
 
   async signIn() {
     if (this.authLoadError) throw this.authLoadError;
+    if (!this.safeStorage.isEncryptionAvailable()) throw new Error('OSの暗号化機能が利用できません。キーチェーン等を利用できる状態にしてから再ログインしてください。');
     if (this.pendingLogin) throw new Error('既にログイン処理が進行中です。');
     if (this.refreshAbortController) {
       this.refreshAbortController.abort();

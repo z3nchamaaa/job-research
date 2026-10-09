@@ -20,6 +20,8 @@ import {
 } from "lucide-react";
 import { CompanyItem, STATUS_LABELS, SelectionStatus } from "@/types";
 import CompanyPriorityEditor from "./CompanyPriorityEditor";
+import ScheduleView from "./ScheduleView";
+import { nextEvent } from "@/lib/calendar";
 
 const STATUS_STYLES: Record<SelectionStatus, { bg: string; text: string }> = {
   INTERESTED: { bg: "bg-secondary-container", text: "text-on-secondary-container" },
@@ -40,7 +42,7 @@ interface Props {
 }
 
 export default function CompanyDetailModal({ company, isOpen, onClose, onUpdated }: Props) {
-  const [activeTab, setActiveTab] = useState<"steps" | "interviews" | "compensation" | "ai_prep" | "memo">("steps");
+  const [activeTab, setActiveTab] = useState<"steps" | "events" | "interviews" | "compensation" | "ai_prep" | "memo">("steps");
 
   // 面接追加フォーム
   const [showAddInterview, setShowAddInterview] = useState(false);
@@ -257,13 +259,14 @@ export default function CompanyDetailModal({ company, isOpen, onClose, onUpdated
     }
   };
 
+  const upcomingEvent = nextEvent(company.events || []);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/32 p-4 max-sm:p-0">
       <div className="relative w-full max-w-4xl rounded-[28px] bg-surface-container-high shadow-sm overflow-hidden my-6 max-h-[92vh] flex flex-col max-sm:h-dvh max-sm:max-h-none max-sm:rounded-none max-sm:my-0">
         {/* Header */}
         <div className="px-4 sm:px-6 pt-4 sm:pt-6 pb-3 flex flex-col md:flex-row justify-between gap-3 md:items-center">
           {/* 左側 or モバイル全体 */}
-          <div className="flex items-start gap-3 w-full md:w-auto">
+          <div className="flex items-start gap-3 w-full md:w-auto min-w-0 flex-1">
             {/* ロゴアイコン */}
             <div className="hidden sm:flex h-11 w-11 items-center justify-center rounded-xl bg-primary-container text-on-primary-container shrink-0">
               <Building2 className="h-6 w-6" />
@@ -272,7 +275,7 @@ export default function CompanyDetailModal({ company, isOpen, onClose, onUpdated
             <div className="flex-1 min-w-0">
               {/* スマホ用: 企業名と閉じるボタンの行 */}
               <div className="flex items-start justify-between gap-2 md:block">
-                <h2 className="text-lg sm:text-2xl font-normal text-on-surface line-clamp-2 md:line-clamp-none break-words">
+                <h2 className="text-lg sm:text-2xl font-normal text-on-surface line-clamp-2 [overflow-wrap:anywhere]">
                   {company.name}
                 </h2>
                 <button
@@ -394,6 +397,9 @@ export default function CompanyDetailModal({ company, isOpen, onClose, onUpdated
 
         {/* Navigation Tabs */}
         <div className="flex border-b border-outline-variant bg-surface-container-high px-6 overflow-x-auto shrink-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <button onClick={() => setActiveTab("events")} className={`relative h-12 px-4 text-sm font-medium shrink-0 whitespace-nowrap cursor-pointer ${activeTab === "events" ? "text-primary border-b-[3px] border-primary" : "text-on-surface-variant"}`}>
+            予定 ({company.events?.length || 0})
+          </button>
           <button
             onClick={() => setActiveTab("steps")}
             className={`relative h-12 px-4 text-sm font-medium transition flex items-center gap-1.5 shrink-0 whitespace-nowrap cursor-pointer ${
@@ -466,10 +472,14 @@ export default function CompanyDetailModal({ company, isOpen, onClose, onUpdated
         </div>
 
         {/* Tab Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-6">
+          {activeTab === "events" && <ScheduleView key={company.id} fixedCompany={company} companies={[company]} events={company.events || []} onEventCreated={onUpdated} onSelectCompany={() => {}} />}
           {/* TAB 1: 選考ステップ */}
           {activeTab === "steps" && (
             <div className="space-y-4">
+              <button type="button" onClick={() => setActiveTab("events")} className="w-full text-left rounded-xl bg-primary-container text-on-primary-container p-3 text-sm [overflow-wrap:anywhere]">
+                {upcomingEvent ? `次の予定：${new Date(upcomingEvent.startAt).toLocaleString("ja-JP", { dateStyle: "medium", timeStyle: "short" })}　${upcomingEvent.title}` : "面接・インターンなどの次の予定を登録"}
+              </button>
               <h3 className="text-xs font-medium text-on-surface-variant uppercase tracking-wider">
                 選考タイムライン
               </h3>
@@ -488,8 +498,8 @@ export default function CompanyDetailModal({ company, isOpen, onClose, onUpdated
                             : "border-outline bg-surface-container-high"
                         }`}
                       />
-                      <div className="flex-1 rounded-xl border border-outline-variant bg-surface-container-lowest p-3.5 shadow-2xs">
-                        <div className="flex items-center justify-between gap-2">
+                      <div className="flex-1 min-w-0 rounded-xl border border-outline-variant bg-surface-container-lowest p-3.5 shadow-2xs">
+                        <div className="flex flex-col items-start sm:flex-row sm:items-center justify-between gap-2">
                           <span className="text-sm font-medium text-on-surface min-w-0 break-words">
                             {idx + 1}. {st.stepName}
                           </span>

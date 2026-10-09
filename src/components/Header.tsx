@@ -26,7 +26,7 @@ export default function Header({
   return (
     <header className="sticky top-0 z-40 bg-surface-container">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-wrap items-center justify-between sm:h-16 py-2 sm:py-0 gap-y-3 sm:gap-y-0 gap-x-4">
+        <div className="flex flex-wrap items-center justify-between min-h-16 py-3 gap-y-3 gap-x-4">
           {/* Logo & App Name */}
           <div className="flex items-center gap-3">
             <div
@@ -49,7 +49,7 @@ export default function Header({
           </div>
 
           {/* View Switcher (M3 Segmented button) */}
-          <div className="order-last w-full sm:order-none sm:w-auto flex sm:inline-flex rounded-full border border-outline overflow-hidden">
+          <div className="order-last w-full grid grid-cols-4 rounded-full border border-outline overflow-hidden">
             <button
               onClick={() => onViewChange("kanban")}
               title="カンバン"
@@ -101,7 +101,7 @@ export default function Header({
           </div>
 
           {/* Actions */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 ml-auto">
             <button
               onClick={onOpenProfileModal}
               disabled={isProfileDisabled}

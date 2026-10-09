@@ -9,7 +9,7 @@ on:
       release_tag:
         description: Existing tag matching the build source
         required: true
-        default: v1.0.2
+        default: v1.0.3
         type: string
 permissions:
   contents: write
@@ -74,4 +74,4 @@ jobs:
           NODE
           cd release && sha256sum --check SHA256SUMS.txt
       - name: Create draft without replacing an existing release
-        run: gh release create "$RELEASE_TAG" release/* --repo "$GITHUB_REPOSITORY" --draft --verify-tag --title "就活トラッカー $RELEASE_TAG" --notes-file RELEASE-NOTES.md
+        run: gh release create "$RELEASE_TAG" release/* --repo "$GITHUB_REPOSITORY" --draft --verify-tag --title "$RELEASE_TAG" --notes-file RELEASE-NOTES.md

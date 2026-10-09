@@ -49,7 +49,7 @@ export interface ScheduleEventItem {
   company?: { id: string; name: string; status: string } | null;
   stepId?: string | null;
   title: string;
-  eventType: "INTERVIEW" | "ES_DEADLINE" | "WEB_TEST" | "BRIEFING" | "OTHER";
+  eventType: "INTERVIEW" | "INTERNSHIP" | "ES_DEADLINE" | "WEB_TEST" | "BRIEFING" | "OTHER";
   startAt: string;
   endAt?: string | null;
   location?: string | null;

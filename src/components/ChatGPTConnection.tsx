@@ -26,6 +26,8 @@ function normalizeSession(value: unknown): DesktopSession {
     connected,
     sharing: connected && value.sharing === true,
     email: typeof value.email === "string" && value.email !== "" ? value.email : undefined,
+    needsReauthentication: value.needsReauthentication === true,
+    authError: typeof value.authError === "string" ? value.authError : undefined,
   };
 }
 
@@ -57,6 +59,7 @@ export default function ChatGPTConnection({ onModelChange, modelLocked = false }
   const [models, setModels] = useState<DesktopModel[]>([]);
   const [selectedModel, setSelectedModel] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [recoveryNotice, setRecoveryNotice] = useState<string | null>(null);
 
   const mountedRef = useRef(false);
   const operationRef = useRef(0);
@@ -87,6 +90,7 @@ export default function ChatGPTConnection({ onModelChange, modelLocked = false }
       const nextSession = normalizeSession(await bridge.getSession());
       if (!isCurrent(operation)) return;
       setSession(nextSession);
+      if (nextSession.needsReauthentication) setError(nextSession.authError || "保存済みの認証情報を読み取れませんでした。再ログインしてください。");
 
       if (!nextSession.connected || !nextSession.sharing) {
         setModels([]);
@@ -136,11 +140,18 @@ export default function ChatGPTConnection({ onModelChange, modelLocked = false }
 
   const handleSignIn = async () => {
     if (!api || phase !== "ready") return;
+    if (session?.needsReauthentication && !window.confirm("この端末の保存済み認証情報を削除して、再ログインします。企業・選考・予定・就活軸のデータは削除しません。続けますか？")) return;
     const operation = beginOperation();
     signingInRef.current = true;
     setError(null);
     setPhase("signingIn");
     try {
+      if (session?.needsReauthentication) {
+        await api.signOut();
+        if (!isCurrent(operation)) return;
+        setSession({ connected: false, sharing: false });
+        setRecoveryNotice("この端末の認証情報をリセットしました。以前の接続許可は解除できていない可能性があります。必要に応じてChatGPT側の設定で確認してください。");
+      }
       await api.signIn();
       if (!isCurrent(operation)) return;
       signingInRef.current = false;
@@ -271,6 +282,7 @@ export default function ChatGPTConnection({ onModelChange, modelLocked = false }
       </div>
 
       <div aria-live="assertive">
+        {recoveryNotice && <p className="rounded-xl bg-secondary-container p-3 text-xs text-on-secondary-container break-words">{recoveryNotice}</p>}
         {error && (
           <div role="alert" className="rounded-xl bg-error-container p-3 text-xs text-on-error-container break-words">
             {error}
@@ -304,7 +316,7 @@ export default function ChatGPTConnection({ onModelChange, modelLocked = false }
       {isReady && !connected && (
         <div className="flex flex-wrap items-center gap-2">
           <button type="button" onClick={handleSignIn} className={continueButtonClass}>
-            Continue with ChatGPT
+            {session?.needsReauthentication ? "認証情報をリセットして再ログイン" : "Continue with ChatGPT"}
           </button>
         </div>
       )}

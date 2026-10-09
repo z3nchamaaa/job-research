@@ -1,6 +1,7 @@
 "use client";
 
 import { CompanyItem, SelectionStatus, STATUS_LABELS } from "@/types";
+import { nextEvent } from "@/lib/calendar";
 import { ChevronRight, ChevronLeft, Building2, MessageSquare, Calendar, ExternalLink, Zap } from "lucide-react";
 
 interface Props {
@@ -128,6 +129,7 @@ export default function KanbanBoard({ companies, onSelectCompany, onStatusChange
                 laneCompanies.map((c) => {
                   const currentLaneIndex = STATUS_LANES.findIndex((l) => l.statuses.includes(c.status));
                   const currentStep = c.steps.find((s) => s.status === "PENDING") || c.steps[c.steps.length - 1];
+                  const upcomingEvent = nextEvent(c.events || []);
 
                   return (
                     <div
@@ -148,7 +150,7 @@ export default function KanbanBoard({ companies, onSelectCompany, onStatusChange
                       </div>
 
                       {/* Company Name */}
-                      <h4 className="font-medium text-on-surface text-sm leading-snug group-hover:text-primary transition line-clamp-2">
+                      <h4 className="font-medium text-on-surface text-sm leading-snug group-hover:text-primary transition line-clamp-2 [overflow-wrap:anywhere]">
                         {c.name}
                       </h4>
 
@@ -201,6 +203,7 @@ export default function KanbanBoard({ companies, onSelectCompany, onStatusChange
                       )}
 
                       {/* Footer Info & Quick Move */}
+                      {upcomingEvent && <p className="mt-2 text-xs text-primary [overflow-wrap:anywhere]">次の予定：{new Date(upcomingEvent.startAt).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}　{upcomingEvent.title}</p>}
                       <div className="mt-2.5 pt-2 border-t border-outline-variant flex items-center justify-between text-xs text-on-surface-variant">
                         <div className="flex items-center gap-2">
                           {c.interviews?.length > 0 && (
