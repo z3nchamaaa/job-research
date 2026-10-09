@@ -16,7 +16,9 @@
     "desktop:start": "electron .",
     "desktop:test": "node --test desktop/*.test.cjs",
     "desktop:pack": "npm run desktop:build && electron-builder --mac dir",
-    "desktop:dist": "npm run desktop:build && electron-builder --mac dmg"
+    "desktop:dist": "npm run desktop:build && electron-builder --mac dmg",
+    "webview:test": "node --test desktop-webview/*.test.cjs",
+    "webview:prepare": "node desktop-webview/prepare.cjs"
   },
   "dependencies": {
     "@prisma/client": "6.19.3",

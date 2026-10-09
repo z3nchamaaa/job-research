@@ -1,0 +1,16 @@
+const fs = require('node:fs');
+const path = require('node:path');
+const { execFileSync } = require('node:child_process');
+const root = path.resolve(__dirname, '..');
+const bundle = path.join(__dirname, 'bundle');
+if (process.platform !== 'win32') throw Error('WebView2 bundles must be prepared on Windows.');
+execFileSync(process.execPath, [path.join(root, 'desktop/verify-release-runtime.cjs')], { cwd: root, stdio: 'inherit' });
+if (!fs.existsSync(path.join(root, 'desktop-runtime/bin/win-x64/node.exe'))) throw Error('Run desktop:prepare-win-arm64 to stage the pinned x64 Node runtime first.');
+if (fs.existsSync(bundle)) fs.rmSync(bundle, { recursive: true, force: true });
+fs.mkdirSync(path.join(bundle, 'backend'), { recursive: true });
+fs.cpSync(path.join(root, 'desktop-runtime'), path.join(bundle, 'runtime'), { recursive: true });
+for (const name of ['chatgpt.cjs', 'career-profile.cjs', 'server-process.cjs']) fs.copyFileSync(path.join(root, 'desktop', name), path.join(bundle, 'backend', name));
+for (const name of ['backend.cjs', 'bridge.js']) fs.copyFileSync(path.join(__dirname, name), path.join(bundle, 'backend', name));
+fs.cpSync(path.join(root, 'node_modules/jose'), path.join(bundle, 'backend/node_modules/jose'), { recursive: true });
+fs.copyFileSync(path.join(root, 'LICENSE'), path.join(bundle, 'LICENSE'));
+console.log('WebView2 bundle prepared; no Chromium or Electron included.');

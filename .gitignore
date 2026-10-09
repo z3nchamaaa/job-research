@@ -66,3 +66,8 @@ next-env.d.ts
 # desktop
 /desktop-runtime
 /dist
+
+# Windows WebView2 experiment
+/desktop-webview/bundle/
+/desktop-webview/bin/
+/desktop-webview/obj/

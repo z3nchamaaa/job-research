@@ -1,0 +1,80 @@
+name: Windows WebView2 experiment
+on:
+  push:
+    branches: [dev-webview]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-2025
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        rid: [win-x64, win-arm64]
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24.21.0'
+          cache: npm
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9
+        with:
+          dotnet-version: '10.0.x'
+      - run: npm ci
+      - run: npm run desktop:test
+      - run: npm run webview:test
+      - run: npm run desktop:build
+      - run: npm run desktop:prepare-win-arm64
+      - run: npm run webview:prepare
+      - name: Build standalone WebView2 host
+        run: dotnet publish desktop-webview/WebViewHost.csproj -c Release -r ${{ matrix.rid }} --self-contained true -o dist/webview/${{ matrix.rid }}
+      - name: Test Windows DPAPI helper
+        if: matrix.rid == 'win-x64'
+        run: |
+          $env:JOB_WEBVIEW_TEST_HOST = (Resolve-Path 'dist/webview/win-x64/JobResearch.WebView.exe').Path
+          npm run webview:test
+      - name: Ensure shared Evergreen Runtime for UI test
+        if: matrix.rid == 'win-x64'
+        run: |
+          $runtime = Get-ChildItem "${env:ProgramFiles(x86)}\Microsoft\EdgeWebView\Application\*\msedgewebview2.exe" -ErrorAction SilentlyContinue
+          if (!$runtime) {
+            $bootstrapper = Join-Path $env:RUNNER_TEMP 'WebView2Setup.exe'
+            Invoke-WebRequest 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' -OutFile $bootstrapper
+            $install = Start-Process $bootstrapper -ArgumentList '/silent','/install' -Wait -PassThru
+            if ($install.ExitCode -notin @(0,3010)) { throw "WebView2 install failed: $($install.ExitCode)" }
+          }
+      - name: Smoke test actual WebView2, bridge, DPAPI and APIs
+        if: matrix.rid == 'win-x64'
+        run: |
+          $data = Join-Path $env:RUNNER_TEMP ('webview-smoke-' + [guid]::NewGuid())
+          $hostExe = (Resolve-Path 'dist/webview/win-x64/JobResearch.WebView.exe').Path
+          $process = Start-Process $hostExe -ArgumentList '--smoke-test',('"' + $data + '"') -PassThru
+          if (!$process.WaitForExit(90000)) { Stop-Process -Id $process.Id; throw 'WebView2 smoke timed out' }
+          if ($process.ExitCode -ne 0) {
+            if (Test-Path (Join-Path $data 'smoke-error.txt')) { Get-Content (Join-Path $data 'smoke-error.txt') }
+            throw "WebView2 smoke failed: $($process.ExitCode)"
+          }
+          Get-Content (Join-Path $data 'smoke-result.json')
+          if (Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'node.exe' -and $_.CommandLine -like '*dist\webview\win-x64*' }) { throw 'Backend left running after exit' }
+      - name: Package experiment and record size
+        run: |
+          $package = 'job-research-1.0.3-webview2-${{ matrix.rid }}.zip'
+          Compress-Archive -Path 'dist/webview/${{ matrix.rid }}/*' -DestinationPath "dist/$package"
+          $bytes = (Get-Item "dist/$package").Length
+          $sha = (Get-FileHash "dist/$package" -Algorithm SHA256).Hash.ToLower()
+          "$sha  $package" | Set-Content "dist/$package.sha256" -Encoding utf8NoBOM
+          "${{ matrix.rid }} ZIP: $bytes bytes" >> $env:GITHUB_STEP_SUMMARY
+          "${{ matrix.rid }} unpacked: $((Get-ChildItem 'dist/webview/${{ matrix.rid }}' -Recurse -File | Measure-Object Length -Sum).Sum) bytes" >> $env:GITHUB_STEP_SUMMARY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: webview2-${{ matrix.rid }}
+          path: |
+            dist/*webview2-${{ matrix.rid }}.zip
+            dist/*webview2-${{ matrix.rid }}.zip.sha256
+          if-no-files-found: error
+          retention-days: 7
