@@ -2,6 +2,7 @@ name: Windows WebView2 experiment
 on:
   push:
     branches: [dev-webview]
+    tags: [v1.0.4-dev]
   workflow_dispatch:
 permissions:
   contents: read
@@ -63,7 +64,8 @@ jobs:
           if (Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'node.exe' -and $_.CommandLine -like '*dist\webview\win-x64*' }) { throw 'Backend left running after exit' }
       - name: Package experiment and record size
         run: |
-          $package = 'job-research-1.0.3-webview2-${{ matrix.rid }}.zip'
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $package = "job-research-$version-webview2-${{ matrix.rid }}.zip"
           Compress-Archive -Path 'dist/webview/${{ matrix.rid }}/*' -DestinationPath "dist/$package"
           $bytes = (Get-Item "dist/$package").Length
           $unpacked = (Get-ChildItem 'dist/webview/${{ matrix.rid }}' -Recurse -File | Measure-Object Length -Sum).Sum
@@ -80,3 +82,39 @@ jobs:
             dist/*webview2-${{ matrix.rid }}.zip.sha256
           if-no-files-found: error
           retention-days: 7
+  prerelease:
+    if: github.ref == 'refs/tags/v1.0.4-dev'
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: webview2-*
+          merge-multiple: true
+          path: prerelease-assets
+      - name: Verify and publish Windows-only prerelease
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          cd prerelease-assets
+          assets=(job-research-1.0.4-dev-webview2-win-x64.zip job-research-1.0.4-dev-webview2-win-arm64.zip)
+          for asset in "${assets[@]}"; do
+            sha256sum --check "$asset.sha256"
+            unzip -Z1 "$asset" | sort > "$asset.files"
+            for required in JobResearch.WebView.exe runtime/server.js runtime/template.db runtime/bin/win-x64/node.exe backend/backend.cjs backend/bridge.js; do
+              grep -Fxq "$required" "$asset.files" || { echo "Missing packaged file: $required"; exit 1; }
+            done
+            grep -q '^runtime/\.next/static/' "$asset.files"
+            if grep -Ei '(^|/)(auth\.enc|syukatsu\.db|dev\.db|career-profile\.json|\.env(\..*)?)$' "$asset.files"; then
+              echo 'Unexpected user data or environment file in package'; exit 1
+            fi
+          done
+          sha256sum "${assets[@]}" > SHA256SUMS.txt
+          gh release create v1.0.4-dev "${assets[@]}" SHA256SUMS.txt --verify-tag --draft --prerelease --latest=false --title v1.0.4-dev --notes-file ../desktop-webview/RELEASE-1.0.4-dev.md
+          gh release edit v1.0.4-dev --draft=false --prerelease --latest=false
