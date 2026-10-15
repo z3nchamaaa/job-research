@@ -124,6 +124,7 @@ function createMockEnvironment(options = {}) {
       return await this.webContents.loadURL(url);
     }
     isMinimized() { return false; }
+    removeMenu() { this.menuRemoved = true; }
     restore() {}
     focus() {}
     close() {
@@ -175,6 +176,7 @@ function createMockEnvironment(options = {}) {
   };
 
   return {
+    platform: options.platform || process.platform,
     app,
     mockElectron,
     MockChatGPTService,
@@ -234,6 +236,8 @@ function runMainInVm(mockEnv, testDir) {
 
   const customProcess = {
     ...process,
+    platform: mockEnv.platform,
+    arch: 'x64',
     argv: ['node', path.join(__dirname, 'main.cjs')],
     env: { ...process.env, TMPDIR: testDir },
     exit: (code) => mockEnv.app.exit(code)
@@ -291,6 +295,15 @@ async function startApp(options = {}) {
     fs.rmSync(dir, { recursive: true, force: true });
     throw err;
   }
+}
+
+for (const platform of ['win32', 'darwin', 'linux']) {
+  test(`Window menu is removed only on Windows: ${platform}`, async (t) => {
+    const { env, dir } = await startApp({ platform });
+    t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+    assert.strictEqual(env.getMainWindow().menuRemoved === true, platform === 'win32');
+    assert.ok(env.getMainWindow().loadedURL);
+  });
 }
 
 test('Child process exit: active exit triggers ChatGPT shutdown, ONE Japanese error dialog, and app.quit', async (t) => {

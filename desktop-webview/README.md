@@ -1,56 +1,47 @@
-# Windows WebView2試作
+# Windows WebView2版
 
-`dev-webview` 専用の比較用ビルドです。既存のElectron版と公開Releaseは変更しません。
+1.0.4の配布候補では、WindowsだけWebView2へ切り替えます。macOSとLinuxは既存のElectron版を維持します。Windowsの画面にはアプリケーションメニューバーを付けません。
 
-Windows FormsとWebView2で画面を表示し、既存のNext.js、Node.js、Prisma、ChatGPT連携処理を使います。Rust環境を追加せずWindows専用の外枠を試すため、今回はTauriではなく.NET 10を使っています。.NETとNode.jsは同梱します。ChromiumやElectronは同梱しません。
+## インストール
 
-## 起動
+`job-research-1.0.4-win-x64.exe`または`job-research-1.0.4-win-arm64.exe`を実行してください。Windows 11以降が対象です。インストール先はユーザーごとの`%LOCALAPPDATA%\Programs\job-research-webview`です。
 
-CI成果物のZIPをすべて展開し、`JobResearch.WebView.exe` を起動します。EXEだけを移動すると起動できません。MicrosoftのWebView2 Evergreen Runtimeが必要です。この試作ZIPにはRuntimeの自動インストール処理を含めていません。
+WebView2 Evergreen Runtimeがなければ、インストーラーからMicrosoftの導入処理を実行します。その場合はインターネット接続が必要です。Node.jsと.NETは同梱します。ChromiumとElectronはWindows版に同梱しません。
 
-保存先は `%LOCALAPPDATA%\job-research-webview-dev` です。既存Electron版の企業データ、就活軸、認証情報は読み込みません。試作版では新しく登録してください。Windows ARM64版でも内部Node.jsはx64のため、Windows 11 ARMのx64エミュレーションを使います。
+ARM64版でも内部Node.jsはx64です。Windows 11 ARMのx64エミュレーションを使用します。
 
-## 認証と通信
+## Electron版からの切り替え
 
-- 認証情報はWindowsのDPAPIを使い、現在のWindowsユーザー向けに暗号化します。平文保存への切り替えはありません。
-- 既存の認証ファイルとは形式と保存先が異なるため、ログインし直す必要があります。
-- WebViewから呼べる操作は既存のデスクトップAPIだけです。任意コマンド実行や任意ファイル読み込みは公開しません。
-- 内部サーバーはランダムなループバックポートで起動し、認証ヘッダーをネイティブ側で付けます。トークンは画面に渡しません。外部サイトや子フレームにはブリッジを注入しません。
-- OAuthや企業サイトのHTTPSリンクは外部ブラウザで開きます。アプリ終了時に内部プロセスも終了します。
+旧アプリを終了し、念のため`%APPDATA%\syukatsu-tracker-desktop`をバックアップしてからインストールしてください。旧アプリを終了した状態でフォルダ全体をコピーします。
 
-## Windowsでのビルド
+正式版のDBと就活軸は、Electron版と同じ保存先を使います。コピーやDB初期化は行いません。旧版と新版を同時に起動しないでください。旧Electron版の自動アンインストールは行いません。
 
-Node.js 24.21.0、.NET 10 SDKが必要です。
+ChatGPTにはログインし直してください。WebView2版の認証情報は保存先内の`webview-auth`に分け、WindowsのDPAPIで暗号化します。Electron版の`auth.enc`と`host_id.txt`は変更しません。復号できない場合はアプリ内のログアウト・再ログインで対処します。
+
+アンインストーラーはアプリ本体だけを削除し、DBや就活軸、認証ファイルは残します。
+
+## 開発版
+
+`-p:WebViewDevelopment=true`でビルドすると、データを`%LOCALAPPDATA%\job-research-webview-dev`に分離します。タイトルにも開発版と表示します。既存の1.0.4-devはこの試作用保存先を使っています。試作用DBを正式版へ自動移行する処理はありません。
+
+## ビルドと検証
+
+WindowsではNode.js 24.21.0、.NET 10 SDK、Inno Setup 6を使用します。
 
 ```powershell
 npm ci
 npm run desktop:build
 npm run desktop:test
-npm run webview:test
-npm run desktop:prepare-win-arm64
-npm run webview:prepare
-dotnet publish desktop-webview/WebViewHost.csproj -c Release -r win-x64 --self-contained true -o dist/webview/win-x64
+./desktop-webview/build.ps1 -Rid win-x64
+./desktop-webview/smoke-install.ps1 ./dist/job-research-1.0.4-win-x64.exe
 ```
 
-ARM64版は最後の行の `win-x64` を両方 `win-arm64` に置き換えます。`desktop:prepare-win-arm64` は名前にARM64が含まれますが、この試作では両版のNode.js同梱に使用します。
+ARM64インストーラーは`-Rid win-arm64`で作成します。ブートストラッパーは公式URLからダウンロードし、Microsoftの署名を確認して同梱します。
 
-GitHub Actionsの `Windows WebView2 experiment` を `dev-webview` で実行すると、x64とARM64のZIP、SHA-256を作成します。正式Releaseには添付しません。
+`Desktop release builds`はWindowsのインストーラー2本、macOSのDMG、LinuxのDEBとRPMを作成します。このビルドだけでは正式Releaseを公開しません。
 
-## 確認範囲
+x64のCIではインストールしたアプリを使用して、WebView2起動、DPAPI、就活軸の保存、企業と予定の登録、同じデータでの再起動、通常終了と強制終了時のNode停止、アンインストールを確認します。データ保存先と認証ファイルの分離はユニットテストでも検査します。
 
-CIでは既存のデスクトップテストに加え、通信ブリッジの許可範囲を検査します。x64版では実際のDPAPI暗号化と復号、WebView2起動、認証なしHTTP要求の拒否、プロフィール保存、企業と予定の登録、終了時の内部プロセス停止を確認します。ARM64版の起動はx64のCIマシンでは検証できません。
+実アカウントでのChatGPTログインとAI生成、カレンダーファイルの保存、Windows ARM64実機での操作は、正式公開前に手動確認が必要です。コード署名のないWindowsインストーラーにはSmartScreenの警告が出る場合があります。
 
-実アカウントでのChatGPTログイン、AI生成、カレンダーファイルの保存、Windows ARM64実機での操作は別途確認が必要です。ZIPとElectron版EXEは圧縮方式やインストール機能が異なるため、サイズは配布方式込みの比較です。インストール後のサイズもCIに記録します。
-
-## 初回の測定結果（2026-10-09）
-
-| Windows版 | Electron 1.0.3のインストーラー | WebView2試作ZIP | ZIP展開後 |
-| --- | ---: | ---: | ---: |
-| x64 | 182.5 MB | 188.3 MB | 476.7 MB |
-| ARM64 | 206.0 MB | 185.9 MB | 490.6 MB |
-
-MBは1,000,000バイトです。WebView2共有Runtimeの容量は含みません。圧縮方式も異なるため、描画エンジン単体の削減量を示す数字ではありません。今回の同梱構成では、x64版の配布ファイルは約3%大きく、ARM64版は約10%小さくなりました。WebView2に替えるだけで大幅に小さくなる、という結果ではありません。
-
-[測定と起動テストのCI](https://github.com/z3nchamaaa/job-research/actions/runs/37908302183)では、両版のビルドとx64版の起動テストが通りました。Node.jsと.NETの同梱を維持するか、別途インストールを必要とする配布にするかは、今後の判断点です。
-
-参考：[WebView2の配布](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution)、[Windows DPAPI](https://learn.microsoft.com/en-us/dotnet/api/system.security.cryptography.protecteddata)
+参考：[WebView2の配布](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution)、[Inno Setup](https://jrsoftware.org/isinfo.php)

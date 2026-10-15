@@ -30,6 +30,16 @@ function methods(service, profiles) {
   });
 }
 
+function prepareData(data, runtime) {
+  fs.mkdirSync(data, { recursive: true, mode: 0o700 });
+  const db = path.join(data, 'syukatsu.db');
+  if (!fs.existsSync(db)) fs.copyFileSync(path.join(runtime, 'template.db'), db, fs.constants.COPYFILE_EXCL);
+  // Electron auth.enc uses a different encryption format. Never overwrite or import it.
+  const auth = path.join(data, 'webview-auth');
+  fs.mkdirSync(auth, { recursive: true, mode: 0o700 });
+  return { db, auth };
+}
+
 async function main() {
   const { ChatGPTService } = require('./chatgpt.cjs');
   const { CareerProfileStore } = require('./career-profile.cjs');
@@ -37,11 +47,9 @@ async function main() {
   const data = process.env.JOB_WEBVIEW_DATA;
   const runtime = path.resolve(__dirname, '../runtime');
   if (!data || !path.isAbsolute(data) || !process.env.DESKTOP_AUTH_TOKEN || !process.env.JOB_WEBVIEW_HOST) throw Error('Invalid host configuration');
-  fs.mkdirSync(data, { recursive: true, mode: 0o700 });
-  const db = path.join(data, 'syukatsu.db');
-  if (!fs.existsSync(db)) fs.copyFileSync(path.join(runtime, 'template.db'), db, fs.constants.COPYFILE_EXCL);
+  const { db, auth } = prepareData(data, runtime);
   const send = value => process.stdout.write(JSON.stringify(value) + '\n');
-  const service = new ChatGPTService({ userDataPath: data, safeStorage: nativeStorage(process.env.JOB_WEBVIEW_HOST), openExternal: async url => {
+  const service = new ChatGPTService({ userDataPath: auth, safeStorage: nativeStorage(process.env.JOB_WEBVIEW_HOST), openExternal: async url => {
     const parsed = new URL(url);
     if (parsed.protocol !== 'https:' || parsed.username || parsed.password) throw Error('Invalid external URL');
     send({ type: 'openExternal', url: parsed.href });
@@ -89,4 +97,4 @@ async function main() {
   send({ type: 'fatal', error: '内部サーバーの起動がタイムアウトしました。' }); shutdown();
 }
 if (require.main === module) main().catch(() => { process.stdout.write(JSON.stringify({ type: 'fatal', error: 'アプリを起動できませんでした。' }) + '\n'); process.exit(1); });
-module.exports = { nativeStorage, methods };
+module.exports = { nativeStorage, methods, prepareData };

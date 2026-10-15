@@ -3,7 +3,35 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
-const { methods, nativeStorage } = require('./backend.cjs');
+const { methods, nativeStorage, prepareData } = require('./backend.cjs');
+const os = require('node:os');
+
+test('Existing Electron DB/profile/auth are preserved and WebView credentials are separate', t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'webview-data-test-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const data = path.join(root, 'data');
+  const runtime = path.join(root, 'runtime');
+  fs.mkdirSync(data); fs.mkdirSync(runtime);
+  fs.writeFileSync(path.join(runtime, 'template.db'), 'empty-template');
+  const originals = { 'syukatsu.db': 'existing-db', 'syukatsu.db-wal': 'existing-wal', 'career-profile.json': '{"version":1}', 'auth.enc': 'electron-auth', 'host_id.txt': 'electron-host' };
+  for (const [name, value] of Object.entries(originals)) fs.writeFileSync(path.join(data, name), value);
+  const result = prepareData(data, runtime);
+  assert.equal(result.db, path.join(data, 'syukatsu.db'));
+  assert.equal(result.auth, path.join(data, 'webview-auth'));
+  fs.writeFileSync(path.join(result.auth, 'auth.enc'), 'webview-auth');
+  prepareData(data, runtime);
+  for (const [name, value] of Object.entries(originals)) assert.equal(fs.readFileSync(path.join(data, name), 'utf8'), value);
+  assert.equal(fs.readFileSync(path.join(result.auth, 'auth.enc'), 'utf8'), 'webview-auth');
+});
+
+test('A new installation gets only the empty template and separate auth directory', t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'webview-new-data-test-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(root, 'template.db'), 'empty-template');
+  const { db, auth } = prepareData(path.join(root, 'new'), root);
+  assert.equal(fs.readFileSync(db, 'utf8'), 'empty-template');
+  assert.deepEqual(fs.readdirSync(auth), []);
+});
 
 test('Backend exposes only the existing desktop bridge allowlist', async () => {
   const calls = [];

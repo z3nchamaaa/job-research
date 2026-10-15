@@ -71,3 +71,4 @@ next-env.d.ts
 /desktop-webview/bundle/
 /desktop-webview/bin/
 /desktop-webview/obj/
+/desktop-webview/dependencies/

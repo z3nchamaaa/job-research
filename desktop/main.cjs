@@ -143,6 +143,8 @@ async function runSmokeTests(port) {
       }
     });
 
+    if (process.platform === 'win32') mainWindow.removeMenu();
+
     mainWindow.webContents.session.webRequest.onBeforeSendHeaders(
       { urls: [`${expectedOrigin}/*`] },
       (details, callback) => {
@@ -182,6 +184,8 @@ async function createWindow(port) {
       sandbox: true
     }
   });
+
+  if (process.platform === 'win32') mainWindow.removeMenu();
 
   expectedOrigin = `http://127.0.0.1:${port}`;
 

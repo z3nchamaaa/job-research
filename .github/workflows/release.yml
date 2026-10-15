@@ -15,11 +15,11 @@ jobs:
             assets: dist/*.dmg
           - runner: windows-2025
             target: win-x64
-            command: npx electron-builder --win nsis --x64 --publish never
+            command: pwsh -File desktop-webview/build.ps1 -Rid win-x64
             assets: dist/*-win-x64.exe
           - runner: windows-2025
             target: win-arm64
-            command: npm run desktop:prepare-win-arm64 && npx electron-builder --win nsis --arm64 --publish never
+            command: pwsh -File desktop-webview/build.ps1 -Rid win-arm64
             assets: dist/*-win-arm64.exe
           - runner: ubuntu-24.04
             target: linux-x64
@@ -43,6 +43,10 @@ jobs:
       - if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y rpm
       - run: npm ci
+      - if: runner.os == 'Windows'
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9
+        with:
+          dotnet-version: '10.0.x'
       - run: npm run desktop:build
       - run: npm run desktop:test
       - run: node desktop/verify-release-runtime.cjs
@@ -51,7 +55,7 @@ jobs:
         run: codesign --verify --deep --strict 'dist/mac-arm64/就活トラッカー.app'
       - if: matrix.target == 'win-x64'
         shell: pwsh
-        run: ./desktop/smoke-install-windows.ps1 (Get-Item 'dist/*-win-x64.exe').FullName
+        run: ./desktop-webview/smoke-install.ps1 (Get-Item 'dist/*-win-x64.exe').FullName
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ${{ matrix.target }}

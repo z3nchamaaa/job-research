@@ -10,10 +10,15 @@ namespace JobResearch.WebView;
 
 internal static class Program
 {
-    internal static readonly byte[] Entropy = Encoding.UTF8.GetBytes("job-research-webview-dev-v1");
+    internal static readonly byte[] Entropy = Encoding.UTF8.GetBytes("job-research-webview-v1");
     [STAThread]
     private static int Main(string[] args)
     {
+        if (args.Length == 1 && args[0] == "--check-runtime")
+        {
+            try { return string.IsNullOrWhiteSpace(CoreWebView2Environment.GetAvailableBrowserVersionString()) ? 1 : 0; }
+            catch { return 1; }
+        }
         if (args.Length == 1 && (args[0] == "--protect" || args[0] == "--unprotect"))
         {
             try
@@ -29,18 +34,29 @@ internal static class Program
             }
             catch { return 1; } // Never print tokens or plaintext on failure.
         }
-        var smoke = args.Length == 2 && args[0] == "--smoke-test";
+        var lifecycle = args.Length == 2 && args[0] == "--lifecycle-test";
+        var smoke = args.Length == 2 && (args[0] == "--smoke-test" || lifecycle);
+#if WEBVIEW_DEVELOPMENT
         var data = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "job-research-webview-dev");
+#else
+        var data = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "syukatsu-tracker-desktop");
+#endif
         if (smoke)
         {
             data = Path.GetFullPath(args[1]);
             if (!data.StartsWith(Path.GetFullPath(Path.GetTempPath()), StringComparison.OrdinalIgnoreCase) || data.Equals(Path.GetFullPath(Path.GetTempPath()), StringComparison.OrdinalIgnoreCase)) return 2;
         }
         else if (args.Length != 0) return 2;
-        using var mutex = new Mutex(true, "Local\\JobResearchWebViewDev-" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(data))), out var first);
+        var mutexName = smoke ? "Local\\JobResearchWebViewTest-" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(data)))
+#if WEBVIEW_DEVELOPMENT
+            : "Local\\JobResearchWebViewDev";
+#else
+            : "Local\\JobResearchWebViewStable";
+#endif
+        using var mutex = new Mutex(true, mutexName, out var first);
         if (!first) return 3;
         ApplicationConfiguration.Initialize();
-        using var window = new HostWindow(data, smoke);
+        using var window = new HostWindow(data, smoke, lifecycle);
         Application.Run(window);
         return window.ExitCode;
     }
@@ -54,6 +70,7 @@ internal sealed class Backend : IDisposable
     private Process? process;
     private long sequence;
     private bool disposing;
+    private readonly ProcessJob job = new();
     internal event Action<string>? OpenExternal;
     internal event Action? Failed;
     internal async Task<string> Start(string data, string token)
@@ -80,6 +97,7 @@ internal sealed class Backend : IDisposable
             if (!disposing) Failed?.Invoke();
         };
         if (!process.Start()) throw new IOException("内部サーバーを起動できませんでした。");
+        try { job.Attach(process); } catch { process.Kill(entireProcessTree: true); throw; }
         process.BeginOutputReadLine(); process.BeginErrorReadLine();
         return await ready.Task.WaitAsync(TimeSpan.FromSeconds(45));
     }
@@ -125,6 +143,7 @@ internal sealed class Backend : IDisposable
         disposing = true;
         try { process?.StandardInput.Close(); if (process is not null && !process.WaitForExit(3000)) process.Kill(entireProcessTree: true); } catch { }
         process?.Dispose();
+        job.Dispose();
     }
 }
 
@@ -134,20 +153,31 @@ internal sealed class HostWindow : Form
     private readonly Backend backend = new();
     private readonly string data;
     private readonly bool smoke;
+    private readonly bool lifecycle;
     private readonly string token = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
     private string origin = "";
     private bool closing;
     internal int ExitCode { get; private set; }
     private static readonly HashSet<string> Methods = new() { "getSession", "signIn", "cancelSignIn", "signOut", "listModels", "generate", "openUsage", "getCareerProfile", "saveCareerProfile" };
-    internal HostWindow(string data, bool smoke)
+    internal HostWindow(string data, bool smoke, bool lifecycle)
     {
-        this.data = data; this.smoke = smoke;
-        Text = "就活トラッカー（WebView2試作・別データ）";
+        this.data = data; this.smoke = smoke; this.lifecycle = lifecycle;
+        Text = "就活トラッカー";
+#if WEBVIEW_DEVELOPMENT
+        Text += "（開発版・別データ）";
+#endif
+        Icon = System.Drawing.Icon.ExtractAssociatedIcon(Environment.ProcessPath!);
         Width = 1200; Height = 850; MinimumSize = new Size(320, 400);
         Controls.Add(web);
-        backend.OpenExternal += url => BeginInvoke(() => OpenExternal(url));
-        backend.Failed += () => { if (!closing) BeginInvoke(() => Fail("内部サーバーが停止しました。")); };
+        backend.OpenExternal += url => Dispatch(() => OpenExternal(url));
+        backend.Failed += () => Dispatch(() => Fail("内部サーバーが停止しました。"));
         Shown += async (_, _) => { try { await Start(); } catch { Fail("アプリを起動できませんでした。WebView2 Runtimeがインストールされているか確認してください。"); } };
+    }
+    private void Dispatch(Action action)
+    {
+        if (closing || IsDisposed || !IsHandleCreated) return;
+        try { BeginInvoke(() => { if (!closing && !IsDisposed) action(); }); }
+        catch (InvalidOperationException) { }
     }
     private bool Trusted(string url) => Uri.TryCreate(url, UriKind.Absolute, out var parsed) && parsed.UserInfo == "" && parsed.GetLeftPart(UriPartial.Authority) == origin;
     private static void OpenExternal(string url)
@@ -200,7 +230,12 @@ internal sealed class HostWindow : Form
         };
         var bridge = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "backend", "bridge.js")).Replace("__EXPECTED_ORIGIN__", JsonSerializer.Serialize(origin));
         await core.AddScriptToExecuteOnDocumentCreatedAsync(bridge);
-        if (smoke) core.NavigationCompleted += async (_, e) =>
+        if (lifecycle) core.NavigationCompleted += (_, e) =>
+        {
+            if (!e.IsSuccess) { Fail("WebView2 navigation failed"); return; }
+            File.WriteAllText(Path.Combine(data, "lifecycle-ready.txt"), "ready");
+        };
+        else if (smoke) core.NavigationCompleted += async (_, e) =>
         {
             if (!e.IsSuccess) { Fail("WebView2 navigation failed"); return; }
             try { await Smoke(); ExitCode = 0; Close(); } catch { Fail("WebView2 smoke failed"); }
@@ -221,12 +256,13 @@ internal sealed class HostWindow : Form
             const profile = await api.getCareerProfile();
             await api.saveCareerProfile({...profile, completed: true, priorities: 'WebView2 test'});
             if ((await api.getCareerProfile()).priorities !== 'WebView2 test') throw Error('profile');
+            const before = await fetch('/api/events').then(r=>r.json());
             const company = await fetch('/api/companies', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'WebView2 smoke company'})}).then(r=>r.json());
             if (!company.success) throw Error('company');
             const event = await fetch('/api/events',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({companyId:company.company.id,title:'WebView2 interview',startAt:'2030-01-01T01:00:00Z',endAt:'2030-01-01T02:00:00Z'})}).then(r=>r.json());
             if (!event.success) throw Error('event');
             const events = await fetch('/api/events').then(r=>r.json());
-            if (events.events.length !== 1) throw Error('events');
+            if (events.events.length !== before.events.length + 1) throw Error('events');
             return JSON.stringify({bridge:true,profile:true,company:true,event:true});
           })().then(value => { window.__webviewSmoke = value; }, () => { window.__webviewSmoke = 'failed'; });
           """);

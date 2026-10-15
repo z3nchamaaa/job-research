@@ -33,7 +33,7 @@ jobs:
       - run: npm run desktop:prepare-win-arm64
       - run: npm run webview:prepare
       - name: Build standalone WebView2 host
-        run: dotnet publish desktop-webview/WebViewHost.csproj -c Release -r ${{ matrix.rid }} --self-contained true -o dist/webview/${{ matrix.rid }}
+        run: dotnet publish desktop-webview/WebViewHost.csproj -c Release -r ${{ matrix.rid }} -p:WebViewDevelopment=true --self-contained true -o dist/webview/${{ matrix.rid }}
       - name: Test Windows DPAPI helper
         if: matrix.rid == 'win-x64'
         run: |
