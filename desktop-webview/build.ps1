@@ -28,3 +28,4 @@ if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notm
 $compiler = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6/ISCC.exe'
 if (!(Test-Path $compiler)) { throw 'Inno Setup 6 is required' }
 Run $compiler @("/DSourceDir=$output", "/DVersion=$version", "/DRid=$Rid", 'desktop-webview/installer.iss')
+Run 'node' @('desktop-webview/verify-package.cjs', $output, (Join-Path $root "dist/job-research-$version-$Rid.exe"))

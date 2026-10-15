@@ -83,3 +83,27 @@ test('Actual Windows DPAPI helper roundtrip and damaged ciphertext rejection', {
   assert.equal(storage.decryptString(encrypted),text);
   assert.throws(()=>storage.decryptString(Buffer.from('broken')),/暗号化/);
 });
+
+test('Native DPAPI session recovery removes only WebView auth and survives restart', {skip:!process.env.JOB_WEBVIEW_TEST_HOST}, async t => {
+  const { ChatGPTService } = require('../desktop/chatgpt.cjs');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'webview-auth-test-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(root, 'template.db'), 'test-template');
+  fs.writeFileSync(path.join(root, 'auth.enc'), 'untouched-electron-auth');
+  const { auth } = prepareData(root, root);
+  const file = path.join(auth, 'auth.enc');
+  fs.writeFileSync(file, 'damaged-ciphertext');
+  const safeStorage = nativeStorage(process.env.JOB_WEBVIEW_TEST_HOST);
+  const create = () => new ChatGPTService({ userDataPath: auth, safeStorage, openExternal: async () => {}, fetch: async () => { throw Error('Unexpected network access'); } });
+  const service = create();
+  t.after(() => service.shutdown());
+  assert.equal(service.getSession().needsReauthentication, true);
+  await service.signOut();
+  assert.equal(fs.existsSync(file), false);
+  assert.equal(fs.readFileSync(path.join(root, 'auth.enc'), 'utf8'), 'untouched-electron-auth');
+  fs.writeFileSync(file, safeStorage.encryptString(JSON.stringify({ clientId: 'test-client' })));
+  const restarted = create();
+  t.after(() => restarted.shutdown());
+  assert.equal(restarted.getSession().needsReauthentication, undefined);
+  assert.equal(restarted.authData.clientId, 'test-client');
+});
