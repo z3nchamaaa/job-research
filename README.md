@@ -18,7 +18,7 @@ cp .env.example .env
 
 ### 2. デスクトップ版の操作
 
-本番利用はデスクトップ版（Electron）を使用します。
+デスクトップ版を使用します。1.0.4の配布候補ではWindowsをWebView2に移行し、macOSとLinuxはElectronを維持します。以下の起動・パッケージングコマンドはElectron版向けです。
 
 ```bash
 # アプリケーションのビルド (Next.js standalone + runtimeステージング)
@@ -44,22 +44,17 @@ npm run desktop:test
 
 ### Windows版のビルド
 
-```bash
+```powershell
 npm run desktop:build
-npm run desktop:prepare-win-arm64
-
-# Windows ARM64
-npx electron-builder --win nsis --arm64 --publish never
-
-# Windows x64
-npx electron-builder --win nsis --x64 --publish never
+./desktop-webview/build.ps1 -Rid win-x64
+./desktop-webview/build.ps1 -Rid win-arm64
 ```
 
-インストーラーは `dist/` に出力します。互換ランタイムの準備にはインターネット接続が必要です。Node.jsとSharpの取得時にチェックサムを確認します。
+Windows 11以降を対象とします。.NET 10 SDKとInno Setup 6が必要です。インストーラーは`dist/`に出力します。Node.jsとSharpの取得時にチェックサムを確認します。
 
-Windows ARM64版はWindows 11 ARMでの利用を想定しています。画面はARM64のElectron、内部サーバーは同梱したx64 Node.jsで動きます。PrismaのDBエンジンがx64専用のため、内部サーバーにはWindowsのx64エミュレーションを使います。
+WebView2はEvergreen方式です。ブラウザー本体は同梱せず、共有RuntimeがないPCではインストール時にMicrosoftから取得します。その場合はインターネット接続が必要です。.NETとNode.jsは同梱します。ARM64版の内部Node.jsはx64のため、Windowsのx64エミュレーションを使用します。
 
-配布ファイルは未署名です。Windows実機でのインストール・起動は未確認です。
+既存のWindows版のDBと就活軸は同じ保存先を使用し、ChatGPTにはログインし直します。旧Electron版を終了してから切り替えてください。[移行手順と検証範囲](desktop-webview/README.md)を参照してください。配布ファイルは未署名です。
 
 ### 3. UI開発用プレビュー（オプション）
 
