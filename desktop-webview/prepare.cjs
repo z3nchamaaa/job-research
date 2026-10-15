@@ -9,7 +9,8 @@ if (!fs.existsSync(path.join(root, 'desktop-runtime/bin/win-x64/node.exe'))) thr
 if (fs.existsSync(bundle)) fs.rmSync(bundle, { recursive: true, force: true });
 fs.mkdirSync(path.join(bundle, 'backend'), { recursive: true });
 fs.cpSync(path.join(root, 'desktop-runtime'), path.join(bundle, 'runtime'), { recursive: true });
-for (const name of ['chatgpt.cjs', 'career-profile.cjs', 'server-process.cjs']) fs.copyFileSync(path.join(root, 'desktop', name), path.join(bundle, 'backend', name));
+for (const name of ['chatgpt.cjs', 'career-profile.cjs', 'server-process.cjs', 'updater.cjs']) fs.copyFileSync(path.join(root, 'desktop', name), path.join(bundle, 'backend', name));
+fs.writeFileSync(path.join(bundle, 'backend', 'app-version.json'), JSON.stringify({ version: require('../package.json').version }));
 for (const name of ['backend.cjs', 'bridge.js']) fs.copyFileSync(path.join(__dirname, name), path.join(bundle, 'backend', name));
 fs.cpSync(path.join(root, 'node_modules/jose'), path.join(bundle, 'backend/node_modules/jose'), { recursive: true });
 fs.copyFileSync(path.join(root, 'LICENSE'), path.join(bundle, 'LICENSE'));

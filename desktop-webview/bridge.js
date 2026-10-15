@@ -15,6 +15,8 @@
     window.chrome.webview.postMessage({ id, method, argument });
   });
   Object.defineProperty(window, 'syukatsuDesktop', { configurable: false, writable: false, value: Object.freeze({
+    getUpdateStatus: () => call('getUpdateStatus'), checkForUpdates: () => call('checkForUpdates'),
+    downloadUpdate: () => call('downloadUpdate'), installUpdate: () => call('installUpdate'),
     getSession: () => call('getSession'), signIn: () => call('signIn'),
     cancelSignIn: () => call('cancelSignIn'), signOut: () => call('signOut'),
     listModels: () => call('listModels'), generate: value => call('generate', value),

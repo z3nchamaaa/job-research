@@ -28,7 +28,23 @@ export interface CareerProfile {
   strengths: string;
 }
 
+export interface UpdateStatus {
+  currentVersion: string;
+  status: 'idle' | 'checking' | 'current' | 'available' | 'downloading' | 'ready' | 'opened' | 'error';
+  available: boolean;
+  progress: number;
+  latestVersion?: string;
+  releaseNotes?: string;
+  releaseUrl?: string;
+  size?: number;
+  error?: string;
+}
+
 export interface SyukatsuDesktopAPI {
+  getUpdateStatus(): Promise<UpdateStatus>;
+  checkForUpdates(): Promise<UpdateStatus>;
+  downloadUpdate(): Promise<UpdateStatus>;
+  installUpdate(): Promise<{ opened: boolean }>;
   getSession(): Promise<DesktopSession>;
   signIn(): Promise<void>;
   cancelSignIn(): Promise<void>;

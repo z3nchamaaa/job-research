@@ -17,7 +17,7 @@ function inspect(root) {
     }
   }
   walk(root);
-  for (const file of ['JobResearch.WebView.exe', 'runtime/server.js', 'runtime/template.db', 'runtime/bin/win-x64/node.exe', 'backend/backend.cjs', 'backend/bridge.js']) {
+  for (const file of ['JobResearch.WebView.exe', 'runtime/server.js', 'runtime/template.db', 'runtime/bin/win-x64/node.exe', 'backend/backend.cjs', 'backend/bridge.js', 'backend/updater.cjs', 'backend/app-version.json']) {
     if (!fs.existsSync(path.join(root, file))) throw Error('Missing package file: ' + file);
   }
   return sizes;

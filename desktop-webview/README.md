@@ -1,10 +1,10 @@
 # Windows WebView2版
 
-1.0.4の配布候補では、WindowsだけWebView2へ切り替えます。macOSとLinuxは既存のElectron版を維持します。Windowsの画面にはアプリケーションメニューバーを付けません。
+WindowsはWebView2、macOSとLinuxはElectronを使用します。Windowsの画面にはアプリケーションメニューバーを付けません。1.0.5候補にはアプリ内の更新確認と、確認してから更新インストーラーを開く機能を追加しています。
 
 ## インストール
 
-`job-research-1.0.4-win-x64.exe`または`job-research-1.0.4-win-arm64.exe`を実行してください。Windows 11以降が対象です。インストール先はユーザーごとの`%LOCALAPPDATA%\Programs\job-research-webview`です。
+使用するCPUに合う`job-research-<version>-win-x64.exe`または`job-research-<version>-win-arm64.exe`を実行してください。Windows 11以降が対象です。インストール先はユーザーごとの`%LOCALAPPDATA%\Programs\job-research-webview`です。
 
 WebView2 Evergreen Runtimeがなければ、インストーラーからMicrosoftの導入処理を実行します。その場合はインターネット接続が必要です。Node.jsと.NETは同梱します。ChromiumとElectronはWindows版に同梱しません。
 
@@ -33,7 +33,7 @@ npm ci
 npm run desktop:build
 npm run desktop:test
 ./desktop-webview/build.ps1 -Rid win-x64
-./desktop-webview/smoke-install.ps1 ./dist/job-research-1.0.4-win-x64.exe
+./desktop-webview/smoke-install.ps1 (Get-Item 'dist/*-win-x64.exe').FullName
 ```
 
 ARM64インストーラーは`-Rid win-arm64`で作成します。ブートストラッパーは公式URLからダウンロードし、Microsoftの署名を確認して同梱します。

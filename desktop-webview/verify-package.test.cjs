@@ -8,7 +8,7 @@ const { inspect } = require('./verify-package.cjs');
 test('Evergreen package rejects bundled browsers and user data', t => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'webview-package-test-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  for (const file of ['JobResearch.WebView.exe', 'runtime/server.js', 'runtime/template.db', 'runtime/bin/win-x64/node.exe', 'backend/backend.cjs', 'backend/bridge.js']) {
+  for (const file of ['JobResearch.WebView.exe', 'runtime/server.js', 'runtime/template.db', 'runtime/bin/win-x64/node.exe', 'backend/backend.cjs', 'backend/bridge.js', 'backend/updater.cjs', 'backend/app-version.json']) {
     fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
     fs.writeFileSync(path.join(root, file), 'test-fixture');
   }

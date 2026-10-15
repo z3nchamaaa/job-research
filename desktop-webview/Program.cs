@@ -86,6 +86,7 @@ internal sealed class Backend : IDisposable
         foreach (var key in start.Environment.Keys.ToArray()) if (!allowed.Contains(key)) start.Environment.Remove(key);
         start.Environment["JOB_WEBVIEW_DATA"] = data;
         start.Environment["JOB_WEBVIEW_HOST"] = Environment.ProcessPath!;
+        start.Environment["JOB_WEBVIEW_ARCH"] = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture == System.Runtime.InteropServices.Architecture.Arm64 ? "arm64" : "x64";
         start.Environment["DESKTOP_AUTH_TOKEN"] = token;
         process = new Process { StartInfo = start, EnableRaisingEvents = true };
         process.OutputDataReceived += (_, e) => Receive(e.Data);
@@ -134,7 +135,7 @@ internal sealed class Backend : IDisposable
             await writeLock.WaitAsync();
             try { await process!.StandardInput.WriteLineAsync(JsonSerializer.Serialize(new { id, method, argument })); }
             finally { writeLock.Release(); }
-            return await operation.Task.WaitAsync(TimeSpan.FromMinutes(4));
+            return await operation.Task.WaitAsync(TimeSpan.FromMinutes(method == "downloadUpdate" ? 20 : 4));
         }
         finally { pending.TryRemove(id, out _); }
     }
@@ -158,7 +159,7 @@ internal sealed class HostWindow : Form
     private string origin = "";
     private bool closing;
     internal int ExitCode { get; private set; }
-    private static readonly HashSet<string> Methods = new() { "getSession", "signIn", "cancelSignIn", "signOut", "listModels", "generate", "openUsage", "getCareerProfile", "saveCareerProfile" };
+    private static readonly HashSet<string> Methods = new() { "getSession", "signIn", "cancelSignIn", "signOut", "listModels", "generate", "openUsage", "getCareerProfile", "saveCareerProfile", "getUpdateStatus", "checkForUpdates", "downloadUpdate", "installUpdate" };
     internal HostWindow(string data, bool smoke, bool lifecycle)
     {
         this.data = data; this.smoke = smoke; this.lifecycle = lifecycle;
@@ -219,8 +220,25 @@ internal sealed class HostWindow : Form
                 id = root.GetProperty("id").GetString();
                 var method = root.GetProperty("method").GetString()!;
                 if (id is null || id.Length > 64 || !Methods.Contains(method)) throw new IOException();
+                if (method == "installUpdate" && MessageBox.Show(this, "アプリを終了してインストーラーを開きます。未保存の入力は失われます。保存済みのデータは残ります。続けますか？", "アプリの更新", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) != DialogResult.Yes)
+                {
+                    core.PostWebMessageAsJson(JsonSerializer.Serialize(new { type = "reply", id, result = new { opened = false } }));
+                    return;
+                }
                 var argument = root.TryGetProperty("argument", out var value) ? value.Clone() : (JsonElement?)null;
                 var result = await backend.Call(method, argument);
+                if (method == "installUpdate")
+                {
+                    var file = Path.GetFullPath(result.GetProperty("installerPath").GetString()!);
+                    var updates = Path.GetFullPath(Path.Combine(data, "updates")) + Path.DirectorySeparatorChar;
+                    if (!file.StartsWith(updates, StringComparison.OrdinalIgnoreCase) || Path.GetExtension(file) != ".exe" || !File.Exists(file)) throw new IOException("更新ファイルを確認できませんでした。");
+                    // Launch from the host, outside Node's kill-on-close Job Object.
+                    if (Process.Start(new ProcessStartInfo(file) { UseShellExecute = true }) is null) throw new IOException("インストーラーを開けませんでした。");
+                    core.PostWebMessageAsJson(JsonSerializer.Serialize(new { type = "reply", id, result = new { opened = true } }));
+                    await Task.Delay(500);
+                    if (!closing) Close();
+                    return;
+                }
                 if (!closing && Trusted(web.Source?.AbsoluteUri ?? "")) core.PostWebMessageAsJson(JsonSerializer.Serialize(new { type = "reply", id, result }));
             }
             catch (Exception error)
@@ -253,6 +271,8 @@ internal sealed class HostWindow : Form
           void (async () => {
             const api = window.syukatsuDesktop;
             if (!api || (await api.getSession()).connected) throw Error('bridge');
+            const update = await api.getUpdateStatus();
+            if (!update.currentVersion || typeof api.downloadUpdate !== 'function' || typeof api.installUpdate !== 'function') throw Error('updater');
             const profile = await api.getCareerProfile();
             await api.saveCareerProfile({...profile, completed: true, priorities: 'WebView2 test'});
             if ((await api.getCareerProfile()).priorities !== 'WebView2 test') throw Error('profile');
@@ -274,6 +294,20 @@ internal sealed class HostWindow : Form
             await Task.Delay(100);
         }
         if (!passed) throw new IOException();
+        // Open the real update dialog and verify it fits a narrow window without clipping.
+        Width = 360;
+        await Task.Delay(300);
+        var dialogStarted = false;
+        for (var i = 0; i < 50; i++)
+        {
+            var shown = await web.CoreWebView2.ExecuteScriptAsync("(() => { const b = document.querySelector('button[aria-label=\"アプリの更新\"]'); if (!b) return false; b.click(); return true; })()");
+            if (shown == "true") { dialogStarted = true; break; }
+            await Task.Delay(100);
+        }
+        if (!dialogStarted) throw new IOException();
+        await Task.Delay(300);
+        var fits = await web.CoreWebView2.ExecuteScriptAsync("(() => { const d = document.querySelector('dialog[open]'); if (!d) return false; const r = d.getBoundingClientRect(); const ok = r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight; d.close(); return ok; })()");
+        if (fits != "true") throw new IOException();
         var check = await backend.Call("getCareerProfile");
         if (check.GetProperty("priorities").GetString() != "WebView2 test") throw new IOException();
         client.DefaultRequestHeaders.Add("x-desktop-token", token);

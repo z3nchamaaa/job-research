@@ -20,8 +20,10 @@ function nativeStorage(host) {
   };
 }
 
-function methods(service, profiles) {
+function methods(service, profiles, updater) {
   return Object.freeze({
+    getUpdateStatus: () => updater.getStatus(), checkForUpdates: () => updater.check(),
+    downloadUpdate: () => updater.download(), installUpdate: () => updater.install(),
     getSession: () => service.getSession(), signIn: () => service.signIn(),
     cancelSignIn: () => service.cancelSignIn(), signOut: () => service.signOut(),
     listModels: () => service.listModels(), generate: argument => service.generate(argument),
@@ -44,6 +46,7 @@ async function main() {
   const { ChatGPTService } = require('./chatgpt.cjs');
   const { CareerProfileStore } = require('./career-profile.cjs');
   const { serverEnvironment } = require('./server-process.cjs');
+  const { AppUpdater } = require('./updater.cjs');
   const data = process.env.JOB_WEBVIEW_DATA;
   const runtime = path.resolve(__dirname, '../runtime');
   if (!data || !path.isAbsolute(data) || !process.env.DESKTOP_AUTH_TOKEN || !process.env.JOB_WEBVIEW_HOST) throw Error('Invalid host configuration');
@@ -54,7 +57,8 @@ async function main() {
     if (parsed.protocol !== 'https:' || parsed.username || parsed.password) throw Error('Invalid external URL');
     send({ type: 'openExternal', url: parsed.href });
   } });
-  const dispatch = methods(service, new CareerProfileStore(data));
+  const updater = new AppUpdater({ version: require('./app-version.json').version, userDataPath: data, platform: 'win32', arch: process.env.JOB_WEBVIEW_ARCH, openInstaller: async file => ({ installerPath: file }) });
+  const dispatch = methods(service, new CareerProfileStore(data), updater);
   const probe = net.createServer();
   await new Promise((resolve, reject) => { probe.once('error', reject); probe.listen(0, '127.0.0.1', resolve); });
   const port = probe.address().port;
@@ -65,7 +69,7 @@ async function main() {
   // Never mix server logs into the JSON RPC stdout stream or forward token-bearing errors.
   child.stdout.resume(); child.stderr.resume();
   let closing = false;
-  const shutdown = () => { if (closing) return; closing = true; service.shutdown(); child.kill(); process.exit(0); };
+  const shutdown = () => { if (closing) return; closing = true; updater.shutdown(); service.shutdown(); child.kill(); process.exit(0); };
   process.stdin.on('end', shutdown);
   process.on('SIGTERM', shutdown);
   process.on('SIGINT', shutdown);

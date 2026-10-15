@@ -7,6 +7,7 @@ const os = require('os');
 const { ChatGPTService } = require('./chatgpt.cjs');
 const { CareerProfileStore } = require('./career-profile.cjs');
 const { serverEnvironment, startServer } = require('./server-process.cjs');
+const { AppUpdater } = require('./updater.cjs');
 
 app.setName('就活トラッカー');
 const getAppIconPath = () => app.isPackaged
@@ -41,6 +42,7 @@ let mainWindow;
 let serverProcess;
 let chatGPTService;
 let careerProfileStore;
+let appUpdater;
 let expectedOrigin = '';
 
 function getCareerProfileStore() {
@@ -289,6 +291,17 @@ function validateSender(event) {
 app.whenReady().then(async () => {
   try {
     const userDataPath = app.getPath('userData');
+    appUpdater = new AppUpdater({
+      version: require('../package.json').version, userDataPath,
+      format: process.platform === 'linux' ? (fs.existsSync('/usr/bin/dpkg') ? 'deb' : fs.existsSync('/usr/bin/rpm') ? 'rpm' : undefined) : undefined,
+      openInstaller: async file => {
+        const error = await shell.openPath(file);
+        if (error) throw new Error('インストーラーを開けませんでした。');
+        setTimeout(() => app.quit(), 500);
+        return { opened: true };
+      },
+    });
+    app.on('before-quit', () => appUpdater.shutdown());
     if (!fs.existsSync(userDataPath)) {
       fs.mkdirSync(userDataPath, { recursive: true, mode: 0o700 });
     }
@@ -322,6 +335,16 @@ app.whenReady().then(async () => {
       }
     });
 
+    for (const [method, action] of Object.entries({ getUpdateStatus: () => appUpdater.getStatus(), checkForUpdates: () => appUpdater.check(), downloadUpdate: () => appUpdater.download(), installUpdate: async () => {
+      const result = await dialog.showMessageBox(mainWindow, { type: 'question', buttons: ['更新する', 'キャンセル'], defaultId: 1, cancelId: 1, title: 'アプリの更新', message: 'アプリを終了してインストーラーを開きます。', detail: '未保存の入力は失われます。保存済みのデータは残ります。続けますか？' });
+      if (result.response !== 0) return { opened: false };
+      return appUpdater.install();
+    } })) {
+      ipcMain.handle(`desktop:${method}`, event => {
+        if (!validateSender(event)) throw new Error('Unauthorized');
+        return action();
+      });
+    }
     ipcMain.handle('desktop:getSession', (event) => {
       if (!validateSender(event)) throw new Error('Unauthorized');
       return chatGPTService.getSession();

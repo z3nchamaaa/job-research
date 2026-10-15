@@ -2,6 +2,10 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('syukatsuDesktop', Object.freeze({
   getSession: () => ipcRenderer.invoke('desktop:getSession'),
+  getUpdateStatus: () => ipcRenderer.invoke('desktop:getUpdateStatus'),
+  checkForUpdates: () => ipcRenderer.invoke('desktop:checkForUpdates'),
+  downloadUpdate: () => ipcRenderer.invoke('desktop:downloadUpdate'),
+  installUpdate: () => ipcRenderer.invoke('desktop:installUpdate'),
   signIn: () => ipcRenderer.invoke('desktop:signIn'),
   cancelSignIn: () => ipcRenderer.invoke('desktop:cancelSignIn'),
   signOut: () => ipcRenderer.invoke('desktop:signOut'),

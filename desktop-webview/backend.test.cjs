@@ -37,7 +37,7 @@ test('Backend exposes only the existing desktop bridge allowlist', async () => {
   const calls = [];
   const service = Object.fromEntries(['getSession','signIn','cancelSignIn','signOut','listModels','generate','openUsage'].map(name=>[name,argument=>{calls.push([name,argument]);return 'result';}]));
   const api = methods(service,{getProfile:()=>({version:1}),saveProfile:value=>value});
-  assert.deepEqual(Object.keys(api).sort(),['getSession','signIn','cancelSignIn','signOut','listModels','generate','openUsage','getCareerProfile','saveCareerProfile'].sort());
+  assert.deepEqual(Object.keys(api).sort(),['getSession','signIn','cancelSignIn','signOut','listModels','generate','openUsage','getCareerProfile','saveCareerProfile','getUpdateStatus','checkForUpdates','downloadUpdate','installUpdate'].sort());
   assert.ok(Object.isFrozen(api));
   assert.equal(Object.hasOwn(api,'constructor'),false);
   assert.equal(api.generate({input:'test'}),'result');

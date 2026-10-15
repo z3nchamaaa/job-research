@@ -1,6 +1,7 @@
 "use client";
 
 import { Sparkles, Plus, Kanban, Table2, Calendar, RefreshCw, Wallet, Check, User } from "lucide-react";
+import AppUpdateButton from "./AppUpdateButton";
 
 interface Props {
   activeView: "kanban" | "table" | "schedule" | "compensation";
@@ -102,6 +103,7 @@ export default function Header({
 
           {/* Actions */}
           <div className="flex items-center gap-2 ml-auto">
+            <AppUpdateButton />
             <button
               onClick={onOpenProfileModal}
               disabled={isProfileDisabled}
