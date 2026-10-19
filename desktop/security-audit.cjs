@@ -4,13 +4,23 @@ const { spawnSync } = require('node:child_process');
 const knownUnpatched = new Set(['GHSA-vfj7-8cjw-p6xm', 'GHSA-hp3w-g68c-fv3c']);
 const exceptionExpires = '2026-10-26T00:00:00Z';
 function audit(args) {
-  const result = spawnSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['audit', '--json', ...args], {
-    encoding: 'utf8', shell: process.platform === 'win32', timeout: 180000, maxBuffer: 8 * 1024 * 1024,
+  const windows = process.platform === 'win32';
+  const command = args.length ? 'npm audit --json --omit=dev' : 'npm audit --json';
+  const result = spawnSync(windows ? (process.env.ComSpec || 'cmd.exe') : 'npm', windows ? ['/d', '/s', '/c', command] : ['audit', '--json', ...args], {
+    encoding: 'utf8', shell: false, timeout: 180000, maxBuffer: 8 * 1024 * 1024,
   });
   if (result.error || ![0,1].includes(result.status)) throw Error('npm audit could not complete');
   const report = JSON.parse(result.stdout);
-  if (report.error || !report.metadata?.vulnerabilities) throw Error('Invalid npm audit response');
+  validateReport(report);
   return report;
+}
+function validateReport(report) {
+  const counts = report.metadata?.vulnerabilities;
+  const levels = ['info', 'low', 'moderate', 'high', 'critical'];
+  if (report.error || !counts || !report.vulnerabilities || typeof report.vulnerabilities !== 'object' || Array.isArray(report.vulnerabilities) ||
+      ![...levels, 'total'].every(key => Number.isSafeInteger(counts[key]) && counts[key] >= 0) ||
+      levels.reduce((sum, key) => sum + counts[key], 0) !== counts.total ||
+      !Object.values(report.vulnerabilities).every(item => Array.isArray(item.via))) throw Error('Invalid npm audit response');
 }
 function evaluate(production, all, now = Date.now()) {
 const advisories = Object.values(all.vulnerabilities || {}).flatMap(item => item.via.filter(v => typeof v !== 'string'));
@@ -38,4 +48,4 @@ if (blocked) {
 }
 if (summary.unpatchedDevelopmentAdvisories.length) console.warn('Unpatched development-only advisories remain; see SECURITY-REVIEW-1.0.6.md.');
 }
-module.exports = { evaluate };
+module.exports = { evaluate, validateReport };

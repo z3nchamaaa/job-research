@@ -38,6 +38,8 @@ cp .env.example .env
 npm run desktop:build
 
 # アプリケーションの起動
+# Electronの初回開発起動だけ、署名検証後にバイナリ取得を明示実行します
+node node_modules/electron/install.js
 npm run desktop:start
 # または
 npm start
