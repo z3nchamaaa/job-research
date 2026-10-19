@@ -1,10 +1,13 @@
 {
   "name": "contract",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Local job application and company research tracker",
   "homepage": "https://github.com/z3nchamaaa/job-research",
   "license": "MIT",
   "private": true,
+  "engines": {
+    "node": "^24.22.0"
+  },
   "main": "desktop/main.cjs",
   "scripts": {
     "dev": "next dev --hostname 127.0.0.1",
@@ -26,7 +29,7 @@
     "date-fns": "^4.4.0",
     "jose": "6.2.12",
     "lucide-react": "^1.48.0",
-    "next": "16.3.6",
+    "next": "16.4.2",
     "prisma": "6.19.3",
     "react": "19.2.8",
     "react-dom": "19.2.8",
@@ -34,13 +37,13 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
+    "@types/node": "24.19.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "electron": "44.5.1",
+    "electron": "44.9.0",
     "electron-builder": "26.15.3",
     "eslint": "^9",
-    "eslint-config-next": "16.3.6",
+    "eslint-config-next": "16.4.2",
     "tailwindcss": "^4",
     "tar": "7.5.22",
     "typescript": "^5"

@@ -23,7 +23,7 @@ jobs:
       BUILD_RUN_ID: ${{ inputs.build_run_id }}
       RELEASE_TAG: ${{ inputs.release_tag }}
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # Node24
         with:
           fetch-depth: 0
       - name: Validate source run and tag

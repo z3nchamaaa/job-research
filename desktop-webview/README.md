@@ -26,7 +26,7 @@ ChatGPTにはログインし直してください。WebView2版の認証情報�
 
 ## ビルドと検証
 
-WindowsではNode.js 24.21.0、.NET 10 SDK、Inno Setup 6を使用します。
+WindowsではNode.js 24.22.0、.NET 10 SDK、Inno Setup 6を使用します。
 
 ```powershell
 npm ci

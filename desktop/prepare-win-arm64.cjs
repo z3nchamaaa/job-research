@@ -4,8 +4,8 @@ const crypto = require('node:crypto');
 const os = require('node:os');
 const tar = require('tar');
 
-const VERSION = 'v24.21.0';
-const NODE_SHA256 = 'ba4e6d110e8c1592a1ecd390f6b05f3da124b13871a5be62b341a07a853c6c32';
+const VERSION = 'v24.22.0';
+const NODE_SHA256 = 'ba93f9a70bd86fce3ebbb39ec758501458453467aa92a34a0a3602d1e3fc2b9c';
 const root = path.join(__dirname, '..');
 
 async function download(url) {
